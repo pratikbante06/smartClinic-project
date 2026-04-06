@@ -2,6 +2,7 @@ package com.project.back_end.models;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -16,12 +17,12 @@ public class Appointment {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "doctor_id", nullable = false)
-    @JsonProperty("doctor")
+    @JsonIgnore
     private Doctor doctor;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "patient_id", nullable = false)
-    @JsonProperty("patient")
+    @JsonIgnore
     private Patient patient;
 
     @NotNull
@@ -38,6 +39,27 @@ public class Appointment {
     @Column(nullable = false)
     @JsonProperty("status")
     private int status = 0;
+
+    // Flat JSON fields to match expected API response shape
+    @JsonProperty("doctorId")
+    public Long getDoctorId() {
+        return doctor != null ? doctor.getId() : null;
+    }
+
+    @JsonProperty("doctorName")
+    public String getDoctorName() {
+        return doctor != null ? doctor.getName() : null;
+    }
+
+    @JsonProperty("patientId")
+    public Long getPatientId() {
+        return patient != null ? patient.getId() : null;
+    }
+
+    @JsonProperty("patientName")
+    public String getPatientName() {
+        return patient != null ? patient.getName() : null;
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

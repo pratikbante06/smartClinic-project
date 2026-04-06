@@ -36,7 +36,6 @@ public class AppointmentController {
             return ResponseEntity.status(401).body(Map.of("message", "Unauthorized"));
 
         try {
-            // Extract IDs from nested objects
             @SuppressWarnings("unchecked")
             Map<String, Object> doctorMap = (Map<String, Object>) body.get("doctor");
             @SuppressWarnings("unchecked")
@@ -97,10 +96,13 @@ public class AppointmentController {
         String token = authHeader.replace("Bearer ", "");
         if (!tokenService.validateToken(token, "DOCTOR"))
             return ResponseEntity.status(401).body(Map.of("message", "Unauthorized"));
-        String doctorName = tokenService.getUsernameFromToken(token);
-        Optional<Doctor> doc = doctorRepository.findByNameContainingIgnoreCase(doctorName).stream().findFirst();
+
+        // Token subject is now email
+        String email = tokenService.getUsernameFromToken(token);
+        Optional<Doctor> doc = doctorRepository.findByEmail(email);
         if (doc.isEmpty())
             return ResponseEntity.status(404).body(Map.of("message", "Doctor not found"));
+
         List<AppointmentDTO> appts = appointmentService.getAppointmentsByDoctor(doc.get().getId(), patientName, date);
         return ResponseEntity.ok(appts);
     }

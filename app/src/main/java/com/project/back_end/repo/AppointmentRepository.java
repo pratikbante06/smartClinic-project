@@ -12,16 +12,20 @@ import java.util.List;
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
 
-    List<Appointment> findByDoctorId(Long doctorId);
+    @Query("SELECT a FROM Appointment a WHERE a.doctor.id = :doctorId")
+    List<Appointment> findByDoctorId(@Param("doctorId") Long doctorId);
 
-    List<Appointment> findByPatientId(Long patientId);
+    @Query("SELECT a FROM Appointment a WHERE a.patient.id = :patientId")
+    List<Appointment> findByPatientId(@Param("patientId") Long patientId);
 
-    List<Appointment> findByDoctorIdAndAppointmentDate(Long doctorId, LocalDate date);
+    @Query("SELECT a FROM Appointment a WHERE a.doctor.id = :doctorId AND a.appointmentDate = :date")
+    List<Appointment> findByDoctorIdAndAppointmentDate(@Param("doctorId") Long doctorId, @Param("date") LocalDate date);
 
     @Query("SELECT a FROM Appointment a WHERE a.doctor.id = :doctorId AND LOWER(a.patient.name) LIKE LOWER(CONCAT('%', :name, '%'))")
     List<Appointment> findByDoctorIdAndPatientNameContainingIgnoreCase(@Param("doctorId") Long doctorId, @Param("name") String name);
 
-    List<Appointment> findByPatientIdAndStatus(Long patientId, int status);
+    @Query("SELECT a FROM Appointment a WHERE a.patient.id = :patientId AND a.status = :status")
+    List<Appointment> findByPatientIdAndStatus(@Param("patientId") Long patientId, @Param("status") int status);
 
     @Query("SELECT a FROM Appointment a WHERE a.patient.id = :patientId AND LOWER(a.doctor.name) LIKE LOWER(CONCAT('%', :doctorName, '%'))")
     List<Appointment> findByPatientIdAndDoctorNameContainingIgnoreCase(@Param("patientId") Long patientId, @Param("doctorName") String doctorName);

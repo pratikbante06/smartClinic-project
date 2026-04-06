@@ -54,6 +54,17 @@ jobs:
           JWT_SECRET: SmartClinicSecretKey2024XYZABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgh
         run: ./mvnw test -B
 
+      - name: Build JAR
+        working-directory: ./app
+        run: ./mvnw package -DskipTests -B
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: app/target/*.jar
+          retention-days: 7
+
       - name: Build Docker image
         working-directory: ./app
         run: docker build -t smartclinic-app .

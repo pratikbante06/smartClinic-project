@@ -28,9 +28,9 @@ public class TokenService {
 
     private final long EXPIRY_MS = 86400000L; // 24 hours
 
-    public String generateToken(String username, String role) {
+    public String generateToken(String subject, String role) {
         return Jwts.builder()
-                .subject(username)
+                .subject(subject)
                 .claim("role", role)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + EXPIRY_MS))
@@ -40,11 +40,7 @@ public class TokenService {
 
     public boolean validateToken(String token, String expectedRole) {
         try {
-            Claims claims = Jwts.parser()
-                    .verifyWith(getKey())
-                    .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
+            Claims claims = parseClaims(token);
             String role = claims.get("role", String.class);
             return expectedRole.equalsIgnoreCase(role);
         } catch (Exception e) {
@@ -53,11 +49,26 @@ public class TokenService {
     }
 
     public String getUsernameFromToken(String token) {
+        return parseClaims(token).getSubject();
+    }
+
+    public String getRoleFromToken(String token) {
+        try {
+            return parseClaims(token).get("role", String.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Claims parseClaims(String token) {
+        // Strip "Bearer " prefix if present
+        if (token != null && token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
         return Jwts.parser()
                 .verifyWith(getKey())
                 .build()
                 .parseSignedClaims(token)
-                .getPayload()
-                .getSubject();
+                .getPayload();
     }
 }

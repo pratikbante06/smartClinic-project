@@ -3,7 +3,7 @@ package com.project.back_end.models;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.validation.constraints.Size;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
@@ -16,11 +16,13 @@ public class Doctor {
     private Long id;
 
     @NotNull
+    @Size(min = 2, max = 100)
     @Column(nullable = false)
     @JsonProperty("name")
     private String name;
 
     @NotNull
+    @Size(min = 2, max = 100)
     @Column(nullable = false)
     @JsonProperty("specialty")
     private String specialty;
@@ -32,8 +34,8 @@ public class Doctor {
     private String email;
 
     @NotNull
+    @Size(min = 6)
     @Column(nullable = false)
-    // Use JsonProperty with access=WRITE_ONLY so password is accepted on input but never returned in responses
     @JsonProperty(value = "password", access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 

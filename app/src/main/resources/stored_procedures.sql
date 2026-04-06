@@ -6,29 +6,51 @@ DELIMITER //
 
 CREATE PROCEDURE GetDailyAppointmentReportByDoctor(IN report_date DATE)
 BEGIN
-    SELECT d.name AS doctor_name, d.specialty,
-           COUNT(a.id) AS total_appointments, report_date AS report_date
-    FROM appointment a JOIN doctor d ON a.doctor_id = d.id
+    SELECT d.id AS doctor_id,
+           d.name AS doctor_name,
+           d.specialty,
+           p.name AS patient_name,
+           p.phone AS patient_phone,
+           a.appointment_time,
+           a.status,
+           report_date AS report_date
+    FROM appointment a
+    JOIN doctor d ON a.doctor_id = d.id
+    JOIN patient p ON a.patient_id = p.id
     WHERE a.appointment_date = report_date
-    GROUP BY d.id, d.name, d.specialty ORDER BY total_appointments DESC;
+    ORDER BY d.name ASC, a.appointment_time ASC;
 END //
 
 CREATE PROCEDURE GetDoctorWithMostPatientsByMonth(IN report_month INT, IN report_year INT)
 BEGIN
-    SELECT d.name AS doctor_name, d.specialty,
-           COUNT(a.id) AS total_patients, report_month AS month, report_year AS year
-    FROM appointment a JOIN doctor d ON a.doctor_id = d.id
-    WHERE MONTH(a.appointment_date) = report_month AND YEAR(a.appointment_date) = report_year
-    GROUP BY d.id, d.name, d.specialty ORDER BY total_patients DESC LIMIT 1;
+    SELECT d.id AS doctor_id,
+           d.name AS doctor_name,
+           d.specialty,
+           COUNT(a.id) AS patients_seen,
+           report_month AS month,
+           report_year AS year
+    FROM appointment a
+    JOIN doctor d ON a.doctor_id = d.id
+    WHERE MONTH(a.appointment_date) = report_month
+      AND YEAR(a.appointment_date) = report_year
+    GROUP BY d.id, d.name, d.specialty
+    ORDER BY patients_seen DESC
+    LIMIT 1;
 END //
 
 CREATE PROCEDURE GetDoctorWithMostPatientsByYear(IN report_year INT)
 BEGIN
-    SELECT d.name AS doctor_name, d.specialty,
-           COUNT(a.id) AS total_patients, report_year AS year
-    FROM appointment a JOIN doctor d ON a.doctor_id = d.id
+    SELECT d.id AS doctor_id,
+           d.name AS doctor_name,
+           d.specialty,
+           COUNT(a.id) AS patients_seen,
+           report_year AS year
+    FROM appointment a
+    JOIN doctor d ON a.doctor_id = d.id
     WHERE YEAR(a.appointment_date) = report_year
-    GROUP BY d.id, d.name, d.specialty ORDER BY total_patients DESC LIMIT 1;
+    GROUP BY d.id, d.name, d.specialty
+    ORDER BY patients_seen DESC
+    LIMIT 1;
 END //
 
 DELIMITER ;
