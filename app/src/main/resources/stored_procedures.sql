@@ -58,3 +58,4 @@ DELIMITER ;
 CALL GetDailyAppointmentReportByDoctor('2026-06-01');
 CALL GetDoctorWithMostPatientsByMonth(6, 2026);
 CALL GetDoctorWithMostPatientsByYear(2026);
+
