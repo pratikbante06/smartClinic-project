@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prescription — Hospital CMS</title>
+<link rel="icon" href="/assets/images/logo/logo.png">
+<link rel="stylesheet" href="/assets/css/style.css">
+<style>
+.hero{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 16px;
+  background:url('/assets/images/defineRole/index.png') center/cover no-repeat,
+  linear-gradient(135deg,#ccfbf1,#e0f2fe);background-blend-mode:overlay}
+</style>
+</head>
+<body>
+<div class="page">
+  <div id="navbar"></div>
+  <div class="hero">
+    <div class="form-card">
+      <h2 id="heading">Add <span>Prescription</span></h2>
+      <div class="form-group"><label>Patient Name</label><input type="text" id="patientName" disabled></div>
+      <div class="form-group"><label>Medicine Names</label>
+        <input type="text" id="medicines" placeholder="e.g. Paracetamol, Vitamin C"></div>
+      <div class="form-group"><label>Dosage Instructions</label>
+        <textarea id="dosage" rows="3" placeholder="e.g. Twice a day after meals"></textarea></div>
+      <div class="form-group"><label>Additional Notes</label>
+        <textarea id="notes" rows="3" placeholder="Any observations (optional)"></textarea></div>
+      <div id="err" class="form-error"></div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="saveBtn" onclick="save()">Save Prescription</button>
+        <button class="btn btn-secondary" onclick="history.back()">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div id="footer"></div>
+</div>
+<script src="/js/shared.js"></script>
+<script>
+// BUG FIX: Doctor auth guard was missing — anyone could navigate to this page
+if (!getToken() || getRole() !== 'doctor') {
+  location.href = '/';
+}
+
+renderNavbar('doctor'); renderFooter();
+
+const q = new URLSearchParams(location.search);
+const appointmentId    = q.get('appointmentId');
+const mode             = q.get('mode');
+const patientNameParam = q.get('patientName');
+const patientIdParam   = q.get('patientId');
+
+// BUG FIX: appointmentId is required; guard against missing it
+if (!appointmentId) {
+  document.getElementById('err').textContent = 'Missing appointment ID. Please go back and try again.';
+  document.getElementById('saveBtn').disabled = true;
+}
+
+document.getElementById('patientName').value = decodeURIComponent(patientNameParam || '');
+
+if (mode === 'view') {
+  document.getElementById('heading').innerHTML = 'View <span>Prescription</span>';
+  ['medicines','dosage','notes'].forEach(id => document.getElementById(id).disabled = true);
+  document.getElementById('saveBtn').style.display = 'none';
+}
+
+async function loadExisting() {
+  const { ok, data } = await api('GET', '/api/prescription/appointment/' + appointmentId);
+  if (ok && data.prescription && data.prescription.length) {
+    const rx = data.prescription[0];
+    document.getElementById('medicines').value = (rx.medication || []).join(', ');
+    const parts = (rx.notes || '').split('\n');
+    document.getElementById('dosage').value = parts[0] || '';
+    document.getElementById('notes').value  = parts.slice(1).join('\n') || '';
+    // BUG FIX: If prescription already exists and we're in add mode, disable save
+    // to prevent duplicate prescription error from backend
+    if (mode !== 'view') {
+      document.getElementById('saveBtn').textContent = 'Already Saved';
+      document.getElementById('saveBtn').disabled = true;
+      const info = document.getElementById('err');
+      info.textContent = 'A prescription already exists for this appointment.';
+      info.style.color = '#64748b';
+    }
+  } else if (mode === 'view') {
+    document.getElementById('err').textContent = 'No prescription saved for this appointment yet.';
+    document.getElementById('err').style.color = '#64748b';
+  }
+}
+
+async function save() {
+  const meds   = document.getElementById('medicines').value.trim();
+  const dosage = document.getElementById('dosage').value.trim();
+  const notes  = document.getElementById('notes').value.trim();
+  const errEl  = document.getElementById('err');
+  errEl.textContent = '';
+  if (!meds)   { errEl.textContent = 'Medicine names are required'; return; }
+  if (!dosage) { errEl.textContent = 'Dosage instructions are required'; return; }
+
+  // BUG FIX: Extract doctorName from JWT token subject (correct field is 'sub')
+  const token = getToken();
+  let doctorName = '';
+  if (token) {
+    try {
+      // JWT payload is base64url encoded; pad to multiple of 4 for atob
+      const base64Payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(atob(base64Payload));
+      doctorName = payload.sub || '';
+    } catch (e) {
+      console.error('Failed to decode token', e);
+    }
+  }
+
+  const body = {
+    patientName:   decodeURIComponent(patientNameParam || ''),
+    // BUG FIX: patientIdParam can be null/undefined; default to 0 safely
+    patientId:     patientIdParam ? Number(patientIdParam) : 0,
+    doctorName:    doctorName,
+    appointmentId: Number(appointmentId),
+    medication:    meds.split(',').map(s => s.trim()).filter(Boolean),
+    notes:         dosage + (notes ? '\n' + notes : '')
+  };
+
+  const { ok, data } = await api('POST', '/api/prescription/add', body);
+  if (ok) {
+    alert('Prescription saved!');
+    history.back();
+  } else {
+    errEl.textContent = data.message || 'Failed to save prescription';
+  }
+}
+
+if (appointmentId) loadExisting();
+</script>
+</body>
+</html>

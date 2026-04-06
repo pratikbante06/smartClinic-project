@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Update Appointment — Hospital CMS</title>
+<link rel="icon" href="/assets/images/logo/logo.png">
+<link rel="stylesheet" href="/assets/css/style.css">
+<style>
+.hero{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 16px;
+  background:url('/assets/images/defineRole/index.png') center/cover no-repeat,
+  linear-gradient(135deg,#ccfbf1,#e0f2fe);background-blend-mode:overlay}
+</style>
+</head>
+<body>
+<div class="page">
+  <div id="navbar"></div>
+  <div class="hero">
+    <div class="form-card">
+      <h2>Update <span>Appointment</span></h2>
+      <div class="form-group"><label>Patient Name</label><input type="text" id="patientName" disabled></div>
+      <div class="form-group"><label>Doctor Name</label><input type="text" id="doctorName" disabled></div>
+      <div class="form-group"><label>Date</label><input type="date" id="apptDate" required></div>
+      <div class="form-group"><label>Time Slot</label>
+        <select id="apptTime" required><option value="">Select a slot</option></select></div>
+      <div id="err" class="form-error"></div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="doUpdate()">Update Appointment</button>
+        <button class="btn btn-secondary" onclick="location.href='/pages/patientAppointments.html'">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div id="footer"></div>
+</div>
+<script src="/js/shared.js"></script>
+<script>
+if (!getToken() || getRole() !== 'patient') location.href = '/pages/patientDashboard.html';
+renderNavbar('patient'); renderFooter();
+
+const q = new URLSearchParams(location.search);
+const apptId    = q.get('id');
+const doctorId  = q.get('doctorId');
+const doctorName = q.get('doctorName');
+
+// BUG FIX: Guard against missing required query params — if id or doctorId is missing,
+// redirect back rather than silently failing on update
+if (!apptId || !doctorId) {
+  alert('Invalid appointment link. Redirecting to appointments.');
+  location.href = '/pages/patientAppointments.html';
+}
+
+document.getElementById('patientName').value = decodeURIComponent(q.get('patientName') || '');
+document.getElementById('doctorName').value  = decodeURIComponent(doctorName || '');
+
+// BUG FIX: Set minimum date to today so past dates cannot be selected
+const today = new Date().toISOString().split('T')[0];
+const apptDateInput = document.getElementById('apptDate');
+apptDateInput.min   = today;
+apptDateInput.value = q.get('date') || '';
+
+async function init() {
+  const { ok, data } = await api('GET', '/api/doctor/all');
+  if (!ok || !Array.isArray(data)) {
+    document.getElementById('err').textContent = 'Failed to load doctor time slots.';
+    return;
+  }
+  const doctor = data.find(d => String(d.id) === String(doctorId));
+  if (!doctor) {
+    document.getElementById('err').textContent = 'Doctor not found.';
+    return;
+  }
+  const sel = document.getElementById('apptTime');
+  (doctor.availableTimes || []).forEach(t => {
+    const o = document.createElement('option'); o.value = t; o.textContent = t; sel.appendChild(o);
+  });
+  const currentTime = q.get('time'); // e.g. "09:00:00"
+  if (currentTime) {
+    // BUG FIX: currentTime from DTO is LocalTime serialised as "HH:mm:ss";
+    // slots are stored as "HH:mm-HH:mm". Match by comparing start portion only.
+    const currentStart = currentTime.substring(0, 5); // "09:00"
+    Array.from(sel.options).forEach(o => {
+      if (o.value.startsWith(currentStart)) sel.value = o.value;
+    });
+  }
+}
+
+async function doUpdate() {
+  const date = document.getElementById('apptDate').value;
+  const time = document.getElementById('apptTime').value;
+  const errEl = document.getElementById('err');
+  if (!date || !time) { errEl.textContent = 'Select date and time'; return; }
+  // BUG FIX: Prevent updating to a past date
+  if (new Date(date) < new Date(today)) {
+    errEl.textContent = 'Cannot set appointment date in the past'; return;
+  }
+  errEl.textContent = '';
+  const startTime = time.split('-')[0].trim();
+  const body = {
+    doctor: { id: Number(doctorId) },
+    appointmentDate: date,
+    appointmentTime: startTime + ':00',
+    status: 0
+  };
+  const { ok, data } = await api('PUT', '/api/appointment/update/' + apptId, body);
+  if (ok) {
+    alert('Appointment updated!');
+    location.href = '/pages/patientAppointments.html';
+  } else {
+    errEl.textContent = data.message || 'Update failed';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

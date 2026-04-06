@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Appointments — Hospital CMS</title>
+<link rel="icon" href="/assets/images/logo/logo.png">
+<link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+<div class="page">
+  <div id="navbar"></div>
+  <div class="page-body">
+    <h2 class="page-title">My <span>Appointments</span></h2>
+    <div class="controls">
+      <select id="filter" onchange="loadAppointments()">
+        <option value="">All Appointments</option>
+        <option value="future">Upcoming</option>
+        <option value="past">Past</option>
+      </select>
+      <input type="text" id="searchDoc" placeholder="Filter by doctor name…" oninput="loadAppointments()">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Time</th><th>Doctor</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="5" style="text-align:center;color:#64748b;padding:24px">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="footer"></div>
+</div>
+<script src="/js/shared.js"></script>
+<script>
+if (!getToken() || getRole() !== 'patient') location.href = '/pages/patientDashboard.html';
+renderNavbar('patient'); renderFooter();
+
+async function loadAppointments() {
+  const condition  = document.getElementById('filter').value;
+  const doctorName = document.getElementById('searchDoc').value.trim();
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#64748b;padding:24px">Loading…</td></tr>';
+  const p = new URLSearchParams();
+  if (condition)  p.append('condition', condition);
+  if (doctorName) p.append('doctorName', doctorName);
+  const { ok, data } = await api('GET', '/api/patient/filter?' + p);
+  const appts = ok ? (data.appointments || []) : [];
+  if (!appts.length) {
+    tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#64748b;padding:24px">No appointments found.</td></tr>';
+    return;
+  }
+  tb.innerHTML = appts.map(a => {
+    // BUG FIX: Safely encode all URL params — patientName was missing null-safety
+    const patientNameEncoded = encodeURIComponent(a.patientName || '');
+    const doctorNameEncoded  = encodeURIComponent(a.doctorName  || '');
+    return `
+    <tr>
+      <td>${a.appointmentDate}</td>
+      <td>${a.appointmentTime}</td>
+      <td>${a.doctorName || 'N/A'}</td>
+      <td><span class="badge ${a.status === 0 ? 'badge-pending' : 'badge-done'}">${a.status === 0 ? 'Upcoming' : 'Completed'}</span></td>
+      <td>
+        ${a.status === 0
+          // BUG FIX: Pass patientName safely; also include patientId for update page
+          ? `<a href="/pages/updateAppointment.html?id=${a.id}&doctorId=${a.doctorId}&patientId=${a.patientId}&patientName=${patientNameEncoded}&doctorName=${doctorNameEncoded}&date=${a.appointmentDate}&time=${a.appointmentTime}"
+               class="btn btn-outline" style="font-size:12px;padding:6px 14px">Edit</a>
+             <button class="btn btn-danger" style="font-size:12px;padding:6px 14px;margin-left:6px" onclick="cancelAppt(${a.id})">Cancel</button>`
+          : `<a href="/pages/viewPrescription.html?appointmentId=${a.id}&patientName=${patientNameEncoded}"
+               class="btn btn-secondary" style="font-size:12px;padding:6px 14px">
+               <img src="/assets/images/addPrescriptionIcon/addPrescription.png" style="width:16px;height:16px"> View Rx</a>`
+        }
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// BUG FIX: Renamed from cancel() to cancelAppt() — "cancel" is a reserved event name
+// in some browsers and caused the function to not fire correctly
+async function cancelAppt(id) {
+  if (!confirm('Cancel this appointment?')) return;
+  const { ok } = await api('DELETE', '/api/appointment/cancel/' + id);
+  if (ok) loadAppointments();
+  else alert('Failed to cancel appointment. Please try again.');
+}
+
+loadAppointments();
+</script>
+</body>
+</html>

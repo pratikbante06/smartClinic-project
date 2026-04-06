@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Doctor Dashboard — Hospital CMS</title>
+<link rel="icon" href="/assets/images/logo/logo.png">
+<link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+<div class="page">
+  <div id="navbar"></div>
+  <div class="page-body">
+    <h2 class="page-title">Doctor <span>Dashboard</span></h2>
+    <div class="controls">
+      <input type="text" id="searchPatient" placeholder="Search by patient name…" oninput="loadAppointments()">
+      <input type="date" id="filterDate" onchange="loadAppointments()">
+      <button class="btn btn-secondary" onclick="clearFilters()">Clear</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Time</th><th>Patient</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="5" style="text-align:center;color:#64748b;padding:24px">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="footer"></div>
+</div>
+<script src="/js/shared.js"></script>
+<script>
+renderNavbar('doctor'); renderFooter();
+
+async function loadAppointments() {
+  const name = document.getElementById('searchPatient').value.trim();
+  const date = document.getElementById('filterDate').value;
+  const p = new URLSearchParams();
+  if (name) p.append('patientName', name);
+  if (date) p.append('date', date);
+  const { ok, data } = await api('GET', '/api/appointment/doctor?' + p);
+  const tb = document.getElementById('tbody');
+  if (!ok || !Array.isArray(data) || !data.length) {
+    tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:#64748b;padding:24px">No appointments found.</td></tr>'; return;
+  }
+  tb.innerHTML = data.map(a => `
+    <tr>
+      <td>${a.appointmentDate}</td>
+      <td>${a.appointmentTime}</td>
+      <td>${a.patientName}</td>
+      <td><span class="badge ${a.status===0?'badge-pending':'badge-done'}">${a.status===0?'Upcoming':'Completed'}</span></td>
+      <td style="display:flex;gap:8px;align-items:center">
+        <a href="/pages/patientRecord.html?id=${a.patientId}" class="btn btn-secondary" style="font-size:12px;padding:6px 12px">Records</a>
+        <a href="/pages/addPrescription.html?appointmentId=${a.id}&patientId=${a.patientId}&patientName=${encodeURIComponent(a.patientName||'')}"
+           class="btn btn-primary" style="font-size:12px;padding:6px 12px">
+          <img src="/assets/images/addPrescriptionIcon/addPrescription.png" style="width:14px;height:14px"> Prescribe
+        </a>
+      </td>
+    </tr>`).join('');
+}
+
+function clearFilters() {
+  document.getElementById('searchPatient').value='';
+  document.getElementById('filterDate').value='';
+  loadAppointments();
+}
+
+loadAppointments();
+</script>
+</body>
+</html>

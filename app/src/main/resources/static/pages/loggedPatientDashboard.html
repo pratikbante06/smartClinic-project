@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Dashboard — Hospital CMS</title>
+<link rel="icon" href="/assets/images/logo/logo.png">
+<link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+<div class="page">
+  <div id="navbar"></div>
+  <div class="page-body">
+    <h2 class="page-title">Find &amp; Book a <span>Doctor</span></h2>
+    <div class="controls">
+      <input type="text" id="search" placeholder="Search by name…" oninput="loadDoctors()">
+      <select id="specialty" onchange="loadDoctors()">
+        <option value="">All Specialties</option>
+        <option>Cardiologist</option><option>Neurologist</option><option>Orthopedist</option>
+        <option>Pediatrician</option><option>Dermatologist</option><option>General Physician</option>
+      </select>
+    </div>
+    <div id="doctorsGrid" class="doctors-grid"><p style="color:#64748b">Loading doctors…</p></div>
+  </div>
+  <div id="footer"></div>
+</div>
+
+<!-- Booking modal -->
+<div class="modal-overlay" id="bookModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('bookModal')">×</button>
+    <h2>Book <span>Appointment</span></h2>
+    <div class="form-group"><label>Patient Name</label><input type="text" id="bkPatient" disabled></div>
+    <div class="form-group"><label>Doctor</label><input type="text" id="bkDoctor" disabled></div>
+    <div class="form-group"><label>Date</label><input type="date" id="bkDate"></div>
+    <div class="form-group"><label>Time Slot</label>
+      <select id="bkTime"><option value="">Select a slot</option></select></div>
+    <div id="bkErr" class="form-error"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="confirmBook()">Confirm Booking</button>
+      <button class="btn btn-secondary" onclick="closeModal('bookModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/shared.js"></script>
+<script>
+// BUG FIX: Guard must run before any rendering; redirect unauthenticated users
+if (!getToken() || getRole() !== 'patient') {
+  location.href = '/pages/patientDashboard.html';
+}
+
+renderNavbar('patient'); renderFooter();
+
+let selectedDoctor = null;
+let patientInfo = null;
+
+async function init() {
+  const { ok, data } = await api('GET', '/api/patient/get');
+  if (ok && data) {
+    patientInfo = data;
+  } else {
+    // BUG FIX: If token is invalid/expired, force logout instead of silently failing
+    console.error('Failed to fetch patient info — logging out');
+    logout();
+    return;
+  }
+  loadDoctors();
+}
+
+async function loadDoctors() {
+  const name = document.getElementById('search').value.trim();
+  const sp   = document.getElementById('specialty').value;
+  let url = '/api/doctor/all';
+  if (name || sp) {
+    const p = new URLSearchParams();
+    if (name) p.append('name', name);
+    if (sp)   p.append('specialty', sp);
+    url = '/api/doctor/search?' + p;
+  }
+  const { ok, data } = await api('GET', url);
+  const grid = document.getElementById('doctorsGrid');
+  const doctors = Array.isArray(data) ? data : [];
+  if (!ok || !doctors.length) {
+    grid.innerHTML='<p style="color:#64748b;padding:20px">No doctors found.</p>'; return;
+  }
+  grid.innerHTML = doctors.map(d => `
+    <div class="doctor-card">
+      <div class="doctor-card-body">
+        <h3>${d.name}</h3>
+        <p class="specialty">🩺 ${d.specialty}</p>
+        <p class="email">✉️ ${d.email}</p>
+        <p class="times">🕐 ${(d.availableTimes||[]).join(' | ') || 'N/A'}</p>
+      </div>
+      <div class="doctor-card-footer">
+        <button onclick='openBooking(${JSON.stringify(d)})'>Book Now</button>
+      </div>
+    </div>`).join('');
+}
+
+function openBooking(doctor) {
+  selectedDoctor = doctor;
+  document.getElementById('bkPatient').value = patientInfo ? patientInfo.name : '…';
+  document.getElementById('bkDoctor').value  = doctor.name;
+  document.getElementById('bkDate').value = '';
+  // BUG FIX: Set minimum date to today so patients can't book past dates
+  document.getElementById('bkDate').min = new Date().toISOString().split('T')[0];
+  const sel = document.getElementById('bkTime');
+  sel.innerHTML = '<option value="">Select a slot</option>';
+  (doctor.availableTimes || []).forEach(t => {
+    const o = document.createElement('option'); o.value = t; o.textContent = t; sel.appendChild(o);
+  });
+  document.getElementById('bkErr').textContent = '';
+  openModal('bookModal');
+}
+
+async function confirmBook() {
+  const date = document.getElementById('bkDate').value;
+  const time = document.getElementById('bkTime').value;
+  const errEl = document.getElementById('bkErr');
+  if (!date || !time) { errEl.textContent = 'Select date and time'; return; }
+  if (!patientInfo || !patientInfo.id) { errEl.textContent = 'Patient info not loaded. Please refresh.'; return; }
+  // BUG FIX: Validate that selected date is not in the past
+  if (new Date(date) < new Date(new Date().toISOString().split('T')[0])) {
+    errEl.textContent = 'Cannot book an appointment in the past'; return;
+  }
+  const startTime = time.split('-')[0].trim();
+  const body = {
+    doctor: { id: selectedDoctor.id },
+    patient: { id: patientInfo.id },
+    appointmentDate: date,
+    appointmentTime: startTime + ':00',
+    status: 0
+  };
+  const { ok, data } = await api('POST', '/api/appointment/book', body);
+  if (ok) { closeModal('bookModal'); alert('Appointment booked successfully!'); loadDoctors(); }
+  else errEl.textContent = data.message || 'Booking failed';
+}
+
+init();
+</script>
+</body>
+</html>

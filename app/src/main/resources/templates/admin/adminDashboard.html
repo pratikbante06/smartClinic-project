@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Dashboard — Hospital CMS</title>
+<link rel="icon" href="/assets/images/logo/logo.png">
+<link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+<div class="page">
+  <div id="navbar"></div>
+  <div class="page-body">
+    <h2 class="page-title">Admin <span>Dashboard</span></h2>
+    <div class="controls">
+      <input type="text" id="search" placeholder="Search by doctor name…" oninput="loadDoctors()">
+      <select id="specialty" onchange="loadDoctors()">
+        <option value="">All Specialties</option>
+        <option>Cardiologist</option><option>Neurologist</option><option>Orthopedist</option>
+        <option>Pediatrician</option><option>Dermatologist</option><option>General Physician</option>
+      </select>
+      <button class="btn btn-primary" onclick="openModal('addModal')">+ Add Doctor</button>
+    </div>
+    <div id="doctorsGrid" class="doctors-grid"><p style="color:#64748b">Loading doctors…</p></div>
+  </div>
+  <div id="footer"></div>
+</div>
+
+<div class="modal-overlay" id="addModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('addModal')">×</button>
+    <h2>Add New <span>Doctor</span></h2>
+    <div class="form-group"><label>Full Name</label><input type="text" id="dName" placeholder="Dr. John Smith"></div>
+    <div class="form-group"><label>Specialty</label>
+      <select id="dSpecialty">
+        <option value="">Select specialty</option>
+        <option>Cardiologist</option><option>Neurologist</option><option>Orthopedist</option>
+        <option>Pediatrician</option><option>Dermatologist</option><option>General Physician</option>
+      </select></div>
+    <div class="form-group"><label>Email</label><input type="email" id="dEmail" placeholder="dr@example.com"></div>
+    <div class="form-group"><label>Password</label><input type="password" id="dPass" placeholder="••••••••"></div>
+    <div class="form-group"><label>Available Times (comma-separated)</label>
+      <input type="text" id="dTimes" placeholder="09:00-10:00, 10:00-11:00, 14:00-15:00"></div>
+    <div id="addErr" class="form-error"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="addDoctor()">Save Doctor</button>
+      <button class="btn btn-secondary" onclick="closeModal('addModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/shared.js"></script>
+<script>
+renderNavbar('admin'); renderFooter();
+let allDoctors = [];
+
+async function loadDoctors() {
+  const name = document.getElementById('search').value.trim();
+  const sp   = document.getElementById('specialty').value;
+  let url = '/api/doctor/all';
+  if (name || sp) {
+    const p = new URLSearchParams();
+    if (name) p.append('name', name);
+    if (sp)   p.append('specialty', sp);
+    url = '/api/doctor/search?' + p;
+  }
+  const { ok, data } = await api('GET', url);
+  allDoctors = Array.isArray(data) ? data : [];
+  const grid = document.getElementById('doctorsGrid');
+  if (!ok || !allDoctors.length) { grid.innerHTML='<p style="color:#64748b;padding:20px">No doctors found.</p>'; return; }
+  grid.innerHTML = allDoctors.map(d => `
+    <div class="doctor-card">
+      <div class="doctor-card-body">
+        <h3>${d.name}</h3>
+        <p class="specialty">🩺 ${d.specialty}</p>
+        <p class="email">✉️ ${d.email}</p>
+        <p class="times">🕐 ${(d.availableTimes||[]).join(' | ') || 'N/A'}</p>
+      </div>
+      <div class="doctor-card-footer">
+        <button class="btn-remove" onclick="removeDoctor(${d.id})">Remove Doctor</button>
+      </div>
+    </div>`).join('');
+}
+
+async function addDoctor() {
+  const name      = document.getElementById('dName').value.trim();
+  const specialty = document.getElementById('dSpecialty').value;
+  const email     = document.getElementById('dEmail').value.trim();
+  const password  = document.getElementById('dPass').value.trim();
+  const times     = document.getElementById('dTimes').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if (!name||!specialty||!email||!password) { document.getElementById('addErr').textContent='All fields required'; return; }
+  const { ok, data } = await api('POST', '/api/doctor/add', { name, specialty, email, password, availableTimes: times });
+  if (ok) { closeModal('addModal'); clearAddForm(); loadDoctors(); }
+  else document.getElementById('addErr').textContent = data.message || 'Failed to add doctor';
+}
+
+function clearAddForm() {
+  ['dName','dEmail','dPass','dTimes'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('dSpecialty').value='';
+  document.getElementById('addErr').textContent='';
+}
+
+async function removeDoctor(id) {
+  const doctor = allDoctors.find(d => d.id === id);
+  const name = doctor ? doctor.name : 'this doctor';
+  if (!confirm('Remove ' + name + '?')) return;
+  const { ok } = await api('DELETE', '/api/doctor/delete/' + id);
+  if (ok) loadDoctors(); else alert('Failed to remove');
+}
+
+loadDoctors();
+</script>
+</body>
+</html>

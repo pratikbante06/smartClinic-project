@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>View Prescription — Hospital CMS</title>
+<link rel="icon" href="/assets/images/logo/logo.png">
+<link rel="stylesheet" href="/assets/css/style.css">
+<style>
+.hero{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 16px;
+  background:url('/assets/images/defineRole/index.png') center/cover no-repeat,
+  linear-gradient(135deg,#ccfbf1,#e0f2fe);background-blend-mode:overlay}
+</style>
+</head>
+<body>
+<div class="page">
+  <div id="navbar"></div>
+  <div class="hero">
+    <div class="form-card">
+      <h2>View <span>Prescription</span></h2>
+      <div class="form-group"><label>Patient Name</label><input type="text" id="patientName" disabled></div>
+      <div class="form-group"><label>Doctor Name</label><input type="text" id="doctorName" disabled></div>
+      <div class="form-group"><label>Medicine Names</label><input type="text" id="medicines" disabled></div>
+      <div class="form-group"><label>Dosage Instructions</label><textarea id="dosage" rows="3" disabled></textarea></div>
+      <div class="form-group"><label>Additional Notes</label><textarea id="notes" rows="3" disabled></textarea></div>
+      <div id="err" style="color:#64748b;font-size:13px;margin-bottom:12px"></div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="history.back()">← Back</button>
+      </div>
+    </div>
+  </div>
+  <div id="footer"></div>
+</div>
+<script src="/js/shared.js"></script>
+<script>
+renderNavbar(getRole()); renderFooter();
+const q = new URLSearchParams(location.search);
+const appointmentId = q.get('appointmentId');
+const patientName   = q.get('patientName');
+document.getElementById('patientName').value = decodeURIComponent(patientName || '');
+
+async function load() {
+  const { ok, data } = await api('GET', '/api/prescription/appointment/' + appointmentId);
+  if (ok && data.prescription && data.prescription.length) {
+    const rx = data.prescription[0];
+    document.getElementById('doctorName').value  = rx.doctorName || 'N/A';
+    document.getElementById('medicines').value   = (rx.medication||[]).join(', ') || 'N/A';
+    const parts = (rx.notes || '').split('\n');
+    document.getElementById('dosage').value = parts[0] || 'N/A';
+    document.getElementById('notes').value  = parts.slice(1).join('\n') || 'N/A';
+  } else {
+    document.getElementById('err').textContent = 'No prescription found for this appointment.';
+  }
+}
+if (appointmentId) load();
+</script>
+</body>
+</html>

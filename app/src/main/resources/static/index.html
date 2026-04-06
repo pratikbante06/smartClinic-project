@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hospital CMS</title>
+<link rel="icon" href="/assets/images/logo/logo.png">
+<link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+<div class="page">
+  <div id="navbar"></div>
+  <div class="hero">
+    <h1>Select Your <span>Role</span></h1>
+    <p>Smart Clinic Management System — secure, fast, modern</p>
+    <div class="role-btns">
+      <button class="role-btn" onclick="location.href='/pages/adminLogin.html'">Admin</button>
+      <button class="role-btn" onclick="location.href='/pages/patientDashboard.html'">Patient</button>
+      <button class="role-btn" onclick="location.href='/pages/doctorLogin.html'">Doctor</button>
+    </div>
+  </div>
+  <div id="footer"></div>
+</div>
+<script src="/js/shared.js"></script>
+<script>renderNavbar(''); renderFooter();</script>
+</body>
+</html>
